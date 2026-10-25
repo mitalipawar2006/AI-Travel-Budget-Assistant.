@@ -1,0 +1,228 @@
+﻿{
+  "name": "AI Travel Budget Assistant",
+  "type": "SHARED",
+  "summary": "",
+  "description": "",
+  "tags": [],
+  "blogUrl": "",
+  "metadata": {
+    "externalId": "xa3s68VEsO5l3DFaaNFui"
+  },
+  "author": "Mitali Pawar",
+  "categories": [],
+  "pieces": [
+    "@activepieces/piece-webhook",
+    "@activepieces/piece-ai",
+    "@activepieces/piece-gmail"
+  ],
+  "flows": [
+    {
+      "displayName": "AI Travel Budget Assistant",
+      "trigger": {
+        "name": "trigger",
+        "valid": true,
+        "displayName": "Catch Webhook",
+        "nextAction": {
+          "name": "step_1",
+          "skip": false,
+          "type": "CODE",
+          "valid": true,
+          "settings": {
+            "input": {
+              "email": "{{trigger['output']['body']['email']}}",
+              "budget": "{{trigger['output']['body']['budget']}}",
+              "destination": "{{trigger['output']['body']['destination']}}",
+              "baseCurrency": "{{trigger['output']['body']['baseCurrency']}}",
+              "durationDays": "{{trigger['output']['body']['durationDays']}}",
+              "targetCurrency": "{{trigger['output']['body']['targetCurrency']}}"
+            },
+            "useDeno": true,
+            "sampleData": {},
+            "sourceCode": {
+              "code": "export const code = async (inputs) => {\n  const destination = inputs.destination;\n  const budget = Number(inputs.budget);\n  const baseCurrency = inputs.baseCurrency;\n  const targetCurrency = inputs.targetCurrency;\n  const durationDays = Number(inputs.durationDays);\n  const email = inputs.email;\n\n  if (!destination || !baseCurrency || !targetCurrency) {\n    throw new Error(\"Missing destination or currency details\");\n  }\n\n  if (budget <= 0 || durationDays <= 0) {\n    throw new Error(\"Budget and duration must be greater than zero\");\n  }\n\n  const response = await fetch(\n    `https://api.frankfurter.dev/v2/rate/${baseCurrency.toLowerCase()}/${targetCurrency.toLowerCase()}`\n  );\n\n  if (!response.ok) {\n    throw new Error(\"Could not fetch the exchange rate\");\n  }\n\n  const data = await response.json();\n\n  const convertedBudget = budget * data.rate;\n  const dailyBudget = convertedBudget / durationDays;\n\n  return {\n    destination: destination,\n    baseCurrency: data.base,\n    targetCurrency: data.quote,\n    exchangeRate: data.rate,\n    rateDate: data.date,\n    originalBudget: budget,\n    convertedBudget: Number(convertedBudget.toFixed(2)),\n    durationDays: durationDays,\n    dailyBudget: Number(dailyBudget.toFixed(2)),\n    email: email\n  };\n};",
+              "packageJson": "{}"
+            },
+            "errorHandlingOptions": {
+              "retryOnFailure": {
+                "value": false
+              },
+              "continueOnFailure": {
+                "value": false
+              }
+            }
+          },
+          "nextAction": {
+            "name": "step_2",
+            "skip": false,
+            "type": "PIECE",
+            "valid": true,
+            "settings": {
+              "input": {
+                "model": "anthropic/claude-haiku-4.5",
+                "prompt": "You are a professional AI Travel Budget Assistant. Create a clean, attractive, easy-to-read travel budget report using the workflow data provided below.\n\nDestination: {{step_1['output']['destination']}}\nStarting currency: {{step_1['output']['baseCurrency']}}\n\nTargcurrency: {{step_1['output']['targetCurrency']}}\nExchange rate:{{step_1['output']['exchangeRate']}}\nOriginal budget:{{step_1['output']['originalBudget']}}\nConverted budget:{{step_1['output']['convertedBudget']}}\nTrip duration:{{step_1['output']['durationDays']}} days\nDaily budget: {{step_1['output']['dailyBudget']}}\nRate date:{{step_1['output']['rateDate']}}\nEmail address for the report: {{step_1['output']['email']}}\nGenerate the report using the actual workflow values. Do not use hardcoded sample values.\nInclude:\nA summary of the travel budget.\nThe exchange rate and its date.\nThe daily spending limit.\nThree practical money-saving tips for the destination.\nA reminder to keep flights, accommodation, meals, and activities within the budget.\nUse simple language and clear headings. Do not invent live prices or guarantee future exchange rates.{{step_1['output']['destination']}}{{step_1['output']['baseCurrency']}}{{step_1['output']['targetCurrency']}}{{step_1['output']['exchangeRate']}}{{step_1['output']['rateDate']}}{{step_1['output']['originalBudget']}}{{step_1['output']['convertedBudget']}}{{step_1['output']['durationDays']}}{{step_1['output']['dailyBudget']}}\nREPORT FORMAT\nCreate the report using the following structure:\n✈️ YOUR TRAVEL BUDGET REPORT\nDestination: [destination]\nTrip Duration: [number of days]\nPrepared For: [email address]\nReport Date: [current date]\n━━━━━━━━━━━━━━━━━━━━\n💰 YOUR BUDGET AT A GLANCE\nOriginal Budget: [amount and starting currency]\nEstimated Converted Budget: [amount and target currency]\nDaily Spending Limit: [amount per day]\nExplain in 2–3 simple sentences what this budget means for the trip.\n━━━━━━━━━━━━━━━━━━━━\n💱 EXCHANGE RATE\nExchange Rate: [starting currency] to [target currency]\nRate Date: [date]\nBriefly explain that exchange rates can change and the displayed rate is not guaranteed for future transactions.\n━━━━━━━━━━━━━━━━━━━━\n📅 DAILY SPENDING PLAN\nSuggest a reasonable daily allocation for:\n• Accommodation\n• Food and drinks\n• Local transport\n• Attractions and activities\n• Emergency or miscellaneous expenses\nMake sure the suggested allocations do not exceed the daily budget. Present them clearly and simply. If exact local prices are unavailable, label the allocations as estimates.\n━━━━━━━━━━━━━━━━━━━━\n💡 3 WAYS TO SAVE MONEY\nProvide three practical money-saving tips specific to the destination. Use a short heading and one or two sentences for each tip.\n━━━━━━━━━━━━━━━━━━━━\n✅ BEFORE YOU TRAVEL\n• Compare flight prices and book within your budget.\n• Check accommodation costs before reserving.\n• Plan a daily food budget.\n• Look for affordable transport and attraction tickets.\n• Keep some money aside for unexpected expenses.\n━━━━━━━━━━━━━━━━━━━━\n🌍 FINAL TIP\nEnd with one encouraging sentence reminding the traveller to balance flights, accommodation, food, transport and activities within the total budget.\nIMPORTANT FORMATTING RULES\nUse plain text with attractive headings and suitable emojis.\nDo not use Markdown symbols such as ##, **, pipes, or table borders.\nDo not create tables.\nUse short paragraphs and bullet points.\nKeep the tone friendly, professional and practical.\nUse the actual workflow values; never substitute hardcoded sample values.\nDo not invent live prices or guarantee future exchange rates.\nEnsure the suggested daily spending allocations add up to no more than the daily budget.\nDo not repeat the same information unnecessarily.\nReturn only the finished report, with no introduction explaining how it was generated.\nTRAVEL EXPENSE BREAKDOWN\nInclude a complete estimated travel expense breakdown covering:\nReturn flights or intercity travel\nAccommodation\nFood and drinks\nLocal transportation\nAttractions and activities\nShopping and miscellaneous expenses\nEmergency reserve\nShow every expense in both the traveller's budget currency and the destination currency. For example: Accommodation: ₹18,000 INR / €169.25 EUR.\nUse only the exchange rate provided by the Code step to convert amounts. Do not invent or assume another exchange rate.\nEnsure all expense allocations add up to the total available budget in both currencies, allowing for minor rounding differences. Also show the estimated daily spending allowance in both currencies.\nClearly label all amounts as estimates, not live prices. If actual flight or accommodation costs have not been provided, explain that these are suggested budget allocations and should be adjusted after checking real prices. Mention that actual costs depend on booking dates, travel choices, and availability.\nKeep the report clean, professional, and easy to read. Do not use Markdown symbols such as ##, **, or table borders.IMPORTANT: The total budget entered by the traveller must cover the entire trip, including return flights or intercity travel, accommodation, food and drinks, local transportation, attractions and activities, shopping and miscellaneous expenses, and an emergency reserve.\nAllocate the total budget across ALL these categories. Do not calculate flight or accommodation costs separately on top of the entered budget. The sum of all expense allocations must equal the traveller's total available budget.\nShow every expense in both the budget currency and destination currency using the exchange rate from the Code step. Display the remaining budget after allocations, ensuring the total is not exceeded.\nIf actual flight and accommodation prices are unavailable, provide suggested allocations and clearly state that the traveller must check actual prices before booking.\nDAILY SPENDING ALLOWANCE\nAlways display the daily spending allowance in both the traveller's original budget currency and the destination currency.\nCalculate the daily allowance by dividing the total budget in each currency by the trip duration in days.\nFor example:\nDaily Spending Allowance: ₹10,000 INR / €94.03 EUR per day.\nEnsure both amounts are consistent with the total budget and the exchange rate provided by the Code step. Round currency amounts to two decimal places where appropriate.\n",
+                "provider": {
+                  "configId": "35wcRPekGvsCHgpSXyahM",
+                  "provider": "activepieces"
+                },
+                "webSearch": false,
+                "maxOutputTokens": 2000,
+                "webSearchOptions": {}
+              },
+              "pieceName": "@activepieces/piece-ai",
+              "actionName": "askAi",
+              "sampleData": {},
+              "pieceVersion": "0.11.0",
+              "propertySettings": {
+                "model": {
+                  "type": "MANUAL"
+                },
+                "prompt": {
+                  "type": "MANUAL"
+                },
+                "provider": {
+                  "type": "MANUAL"
+                },
+                "webSearch": {
+                  "type": "MANUAL"
+                },
+                "creativity": {
+                  "type": "MANUAL"
+                },
+                "conversationKey": {
+                  "type": "MANUAL"
+                },
+                "maxOutputTokens": {
+                  "type": "MANUAL"
+                },
+                "webSearchOptions": {
+                  "type": "MANUAL",
+                  "schema": {}
+                }
+              },
+              "errorHandlingOptions": {
+                "retryOnFailure": {
+                  "value": false
+                },
+                "continueOnFailure": {
+                  "value": false
+                }
+              }
+            },
+            "nextAction": {
+              "name": "step_3",
+              "skip": false,
+              "type": "PIECE",
+              "valid": true,
+              "settings": {
+                "input": {
+                  "cc": [],
+                  "bcc": [],
+                  "auth": "{{connections['PAtM0rthA7OLlvNWPa6Wf']}}",
+                  "body": "{{step_2['output']}}",
+                  "draft": false,
+                  "subject": "Your AI Travel Budget Report",
+                  "receiver": [
+                    "{{step_1['output']['email']}}"
+                  ],
+                  "reply_to": [],
+                  "body_type": "plain_text",
+                  "attachments": []
+                },
+                "pieceName": "@activepieces/piece-gmail",
+                "actionName": "send_email",
+                "sampleData": {},
+                "pieceVersion": "0.18.2",
+                "propertySettings": {
+                  "cc": {
+                    "type": "MANUAL"
+                  },
+                  "bcc": {
+                    "type": "MANUAL"
+                  },
+                  "body": {
+                    "type": "MANUAL"
+                  },
+                  "from": {
+                    "type": "MANUAL"
+                  },
+                  "draft": {
+                    "type": "MANUAL"
+                  },
+                  "subject": {
+                    "type": "MANUAL"
+                  },
+                  "receiver": {
+                    "type": "MANUAL"
+                  },
+                  "reply_to": {
+                    "type": "MANUAL"
+                  },
+                  "body_type": {
+                    "type": "MANUAL"
+                  },
+                  "attachments": {
+                    "type": "MANUAL"
+                  },
+                  "in_reply_to": {
+                    "type": "MANUAL"
+                  },
+                  "sender_name": {
+                    "type": "MANUAL"
+                  }
+                },
+                "errorHandlingOptions": {
+                  "retryOnFailure": {
+                    "value": false
+                  },
+                  "continueOnFailure": {
+                    "value": false
+                  }
+                }
+              },
+              "displayName": "Send Email",
+              "lastUpdatedDate": "2026-10-25T17:11:07.613Z"
+            },
+            "displayName": "Ask AI",
+            "lastUpdatedDate": "2026-10-25T17:11:08.274Z"
+          },
+          "displayName": "Code",
+          "lastUpdatedDate": "2026-10-25T17:11:07.612Z"
+        },
+        "lastUpdatedDate": "2026-10-25T17:11:07.612Z",
+        "type": "PIECE_TRIGGER",
+        "settings": {
+          "sampleData": {},
+          "propertySettings": {
+            "authType": {
+              "type": "MANUAL"
+            },
+            "authFields": {
+              "type": "MANUAL",
+              "schema": {}
+            },
+            "liveMarkdown": {
+              "type": "MANUAL"
+            },
+            "syncMarkdown": {
+              "type": "MANUAL"
+            },
+            "testMarkdown": {
+              "type": "MANUAL"
+            }
+          },
+          "pieceName": "@activepieces/piece-webhook",
+          "pieceVersion": "0.1.42",
+          "triggerName": "catch_webhook",
+          "input": {
+            "authType": "none",
+            "authFields": {}
+          }
+        }
+      },
+      "valid": true,
+      "schemaVersion": "28",
+      "notes": []
+    }
+  ],
+  "status": "PUBLISHED"
+}
